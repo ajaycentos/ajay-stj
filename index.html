@@ -49,8 +49,6 @@
             font-weight: 600;
             cursor: pointer;
             transition: all 0.2s;
-            flex-shrink: 0;
-            white-space: nowrap;
         }
         .tab-btn.active {
             background-color: #4f46e5;
@@ -91,12 +89,12 @@
         </section>
 
         <!-- Action Bar and Tabs -->
-        <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
-             <div class="flex justify-center bg-slate-200 p-1 rounded-lg w-full sm:w-auto">
+        <div class="flex justify-between items-center mb-4 gap-4">
+             <div class="flex bg-slate-200 p-1 rounded-lg">
                 <button id="open-trades-tab" class="tab-btn active">Open</button>
                 <button id="closed-trades-tab" class="tab-btn">Closed</button>
             </div>
-            <button id="log-trade-button" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition shadow-lg">Log New Trade</button>
+            <button id="log-trade-button" class="bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition shadow-lg">Log New Trade</button>
         </div>
 
         <!-- Trades List -->
@@ -258,25 +256,9 @@
                 }
             });
 
-            const handleGoogleSignIn = async () => {
-                const provider = new GoogleAuthProvider();
-                try {
-                    await signInWithPopup(auth, provider);
-                    // onAuthStateChanged will handle the successful login
-                } catch (error) {
-                    console.error("Google Sign-In Error:", error.code, error.message);
-                    if (error.code === 'auth/popup-blocked') {
-                        authError.textContent = 'Popup blocked. Please allow popups for this site.';
-                        alert('Your browser blocked the sign-in popup. Please enable popups and try again.');
-                    } else if (error.code === 'auth/popup-closed-by-user') {
-                        authError.textContent = 'Sign-in window closed before completion.';
-                    } else {
-                        authError.textContent = 'Could not sign in with Google.';
-                    }
-                }
-            };
-
-            googleSigninButton.addEventListener('click', handleGoogleSignIn);
+            googleSigninButton.addEventListener('click', async () => {
+                try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (error) { authError.textContent = "Could not sign in with Google."; }
+            });
             logoutButton.addEventListener('click', () => signOut(auth));
 
             // --- FIRESTORE DATA HANDLING ---
@@ -386,7 +368,7 @@
                 const totalLossAmount = closedTrades.filter(t => t.status === 'loss').reduce((sum, t) => sum + t.pnl, 0);
                 
                 const avgWin = wins > 0 ? totalWinAmount / wins : 0;
-                const losses = closedTrades.filter(t => t.status === 'loss').length; // Corrected calculation
+                const losses = closedTrades.filter(t => t.status === 'loss').length;
                 const avgLoss = losses > 0 ? totalLossAmount / losses : 0;
                 
                 const openTradesCount = allTrades.filter(t => t.status === 'open').length;
@@ -522,5 +504,4 @@
     </script>
 </body>
 </html>
-
 
