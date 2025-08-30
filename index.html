@@ -370,7 +370,7 @@
                 const totalLossAmount = closedTrades.filter(t => t.status === 'loss').reduce((sum, t) => sum + t.pnl, 0);
                 
                 const avgWin = wins > 0 ? totalWinAmount / wins : 0;
-                const losses = closedTrades.filter(t => t.status === 'win' || t.status ==='loss').length - wins; // only count wins and losses for avg loss calculation
+                const losses = closedTrades.filter(t => t.status === 'loss').length; // Corrected calculation
                 const avgLoss = losses > 0 ? totalLossAmount / losses : 0;
                 
                 const openTradesCount = allTrades.filter(t => t.status === 'open').length;
