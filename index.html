@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Swing Trading Journal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+        #auth-overlay, #loader-overlay, #trade-modal-overlay, #close-trade-modal-overlay {
+            background-color: rgba(241, 245, 249, 0.95);
+            backdrop-filter: blur(8px);
+        }
+        .status-tag {
+            font-size: 0.7rem;
+            padding: 3px 10px;
+            border-radius: 9999px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        .status-open { background-color: #e0e7ff; color: #4338ca; }
+        .status-win { background-color: #dcfce7; color: #166534; }
+        .status-loss { background-color: #fee2e2; color: #991b1b; }
+        .status-be { background-color: #f1f5f9; color: #475569; }
+        
+        .stat-card h3 {
+            font-size: 0.8rem;
+            font-weight: 500;
+            color: #64748b;
+            text-transform: uppercase;
+        }
+        .stat-card p {
+            font-size: 1.75rem;
+            font-weight: 700;
+            color: #1e293b;
+        }
+        .pnl-positive { color: #16a34a; }
+        .pnl-negative { color: #dc2626; }
+        
+        .tab-btn {
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .tab-btn.active {
+            background-color: #4f46e5;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex items-start justify-center min-h-screen pt-8 sm:pt-12">
+
+    <main id="app-container" class="w-full max-w-4xl mx-auto p-4" style="display: none;">
+        <header class="text-center mb-8 relative">
+            <h1 class="text-3xl font-bold text-slate-900">Swing Trading Journal</h1>
+            <p id="current-date" class="text-slate-500">Track your trades, improve your edge.</p>
+            <div id="user-info" class="absolute top-0 right-0 text-right">
+                <button id="logout-button" class="text-sm text-indigo-600 hover:text-indigo-800 font-semibold">Logout</button>
+            </div>
+        </header>
+
+        <!-- Stats Section -->
+        <section id="stats-section" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+            <div class="stat-card bg-white p-4 rounded-xl shadow-md text-center">
+                <h3>Total P&L</h3>
+                <p id="total-pnl">₹0</p>
+            </div>
+            <div class="stat-card bg-white p-4 rounded-xl shadow-md text-center">
+                <h3>Win Rate</h3>
+                <p id="win-rate">0%</p>
+            </div>
+            <div class="stat-card bg-white p-4 rounded-xl shadow-md text-center">
+                <h3>Avg. Win / Loss</h3>
+                <p id="avg-win-loss">₹0 / ₹0</p>
+            </div>
+            <div class="stat-card bg-white p-4 rounded-xl shadow-md text-center">
+                <h3>Open Trades</h3>
+                <p id="open-trades-count">0</p>
+            </div>
+        </section>
+
+        <!-- Action Bar and Tabs -->
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-4 gap-4">
+             <div class="flex bg-slate-200 p-1 rounded-lg">
+                <button id="open-trades-tab" class="tab-btn active">Open</button>
+                <button id="closed-trades-tab" class="tab-btn">Closed</button>
+            </div>
+            <button id="log-trade-button" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition shadow-lg">Log New Trade</button>
+        </div>
+
+        <!-- Trades List -->
+        <section id="trades-list-section">
+            <ul id="trades-list" class="space-y-3">
+                <!-- Trade items will be dynamically inserted here -->
+            </ul>
+        </section>
+    </main>
+    
+    <!-- Add/Edit Trade Modal -->
+    <div id="trade-modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
+        <div class="w-full max-w-lg bg-white p-6 rounded-2xl shadow-xl space-y-4">
+            <div class="flex justify-between items-center">
+                <h2 id="trade-modal-title" class="text-xl font-bold">Log New Trade</h2>
+                <button id="close-trade-modal-button" class="text-slate-500 hover:text-slate-800 text-2xl">&times;</button>
+            </div>
+            <form id="trade-form" class="space-y-3">
+                <input type="hidden" id="trade-id-input">
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <input type="text" id="ticker-input" placeholder="Ticker (e.g., RELIANCE)" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="strategy-input" placeholder="Setup/Strategy (e.g. Breakout)" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-slate-500">Entry Date</label>
+                        <input type="date" id="entry-date-input" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                         <label class="text-xs text-slate-500">Direction</label>
+                        <select id="direction-select" class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option>Long</option>
+                            <option>Short</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                    <input type="number" step="any" id="entry-price-input" placeholder="Entry Price" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="number" id="quantity-input" placeholder="Quantity" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="number" step="any" id="stop-loss-input" placeholder="Stop Loss" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="number" step="any" id="target-price-input" placeholder="Target" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <textarea id="entry-notes-input" placeholder="Entry Notes / Trade Thesis..." rows="3" class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                <button type="submit" id="save-trade-button" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700">Save Trade</button>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Close Trade Modal -->
+    <div id="close-trade-modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
+         <div class="w-full max-w-sm bg-white p-6 rounded-2xl shadow-xl space-y-4">
+             <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold">Close Trade</h2>
+                <button id="cancel-close-trade-button" class="text-slate-500 hover:text-slate-800 text-2xl">&times;</button>
+            </div>
+             <form id="close-trade-form" class="space-y-3">
+                <input type="hidden" id="close-trade-id-input">
+                <div>
+                    <label class="text-xs text-slate-500">Exit Date</label>
+                    <input type="date" id="exit-date-input" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                     <label class="text-xs text-slate-500">Exit Price</label>
+                    <input type="number" step="any" id="exit-price-input" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <textarea id="exit-notes-input" placeholder="Exit Notes / Trade Review..." rows="3" class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
+                <button type="submit" class="w-full bg-red-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-red-700">Confirm Close</button>
+            </form>
+         </div>
+    </div>
+
+    <!-- Auth & Loader Overlays -->
+    <div id="auth-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl text-center">
+            <h2 class="text-2xl font-bold mb-2 text-slate-800">Trading Journal</h2>
+            <p class="text-slate-500 mb-6">Sign in to begin.</p>
+            <button id="google-signin-button" class="w-full bg-white border border-slate-300 text-slate-700 font-semibold py-3 px-5 rounded-lg hover:bg-slate-50 transition flex items-center justify-center gap-3">
+                <svg class="w-5 h-5" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"></path><path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z"></path><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.222 0-9.618-3.226-11.283-7.662l-6.522 5.025C9.505 39.556 16.227 44 24 44z"></path><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C42.012 35.24 44 30.025 44 24c0-1.341-.138-2.65-.389-3.917z"></path></svg>
+                Sign in with Google
+            </button>
+            <p id="auth-error" class="text-red-500 text-sm mt-4 h-4"></p>
+        </div>
+    </div>
+    <div id="loader-overlay" class="fixed inset-0 z-50 flex items-center justify-center" style="display: none;">
+        <div class="w-16 h-16 border-4 border-indigo-200 border-t-indigo-600 rounded-full animate-spin"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = {
+			apiKey: "AIzaSyD8rRXlt8gwrKMIgLTwhvejWCiIPOqEMl0",
+            authDomain: "my-habit-tracker-fab33.firebaseapp.com",
+            projectId: "my-habit-tracker-fab33",
+            storageBucket: "my-habit-tracker-fab33.appspot.com",
+            messagingSenderId: "76678091008",
+            appId: "1:76678091008:web:beb64e97a88f1f04fa63e5"
+        };
+        
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- DOM ELEMENTS ---
+            const appContainer = document.getElementById('app-container');
+            const authOverlay = document.getElementById('auth-overlay');
+            const loaderOverlay = document.getElementById('loader-overlay');
+            const googleSigninButton = document.getElementById('google-signin-button');
+            const authError = document.getElementById('auth-error');
+            const logoutButton = document.getElementById('logout-button');
+            const dateElement = document.getElementById('current-date');
+            const logTradeButton = document.getElementById('log-trade-button');
+            const tradesList = document.getElementById('trades-list');
+
+            // Modals
+            const tradeModalOverlay = document.getElementById('trade-modal-overlay');
+            const closeTradeModalButton = document.getElementById('close-trade-modal-button');
+            const tradeModalTitle = document.getElementById('trade-modal-title');
+            const tradeForm = document.getElementById('trade-form');
+            const tradeIdInput = document.getElementById('trade-id-input');
+
+            const closeTradeModalOverlay = document.getElementById('close-trade-modal-overlay');
+            const closeTradeForm = document.getElementById('close-trade-form');
+            const cancelCloseTradeButton = document.getElementById('cancel-close-trade-button');
+            const closeTradeIdInput = document.getElementById('close-trade-id-input');
+            
+            // Tabs
+            const openTradesTab = document.getElementById('open-trades-tab');
+            const closedTradesTab = document.getElementById('closed-trades-tab');
+
+            // Stats
+            const totalPnlEl = document.getElementById('total-pnl');
+            const winRateEl = document.getElementById('win-rate');
+            const avgWinLossEl = document.getElementById('avg-win-loss');
+            const openTradesCountEl = document.getElementById('open-trades-count');
+
+            // --- APP STATE ---
+            let allTrades = [];
+            let currentUserId = null;
+            let unsubscribeFromFirestore = null;
+            let currentView = 'open'; // 'open' or 'closed'
+
+            // --- AUTHENTICATION ---
+            onAuthStateChanged(auth, async (user) => {
+                if (user) {
+                    loaderOverlay.style.display = 'flex';
+                    // Optional: Whitelist check
+                    // const isAuthorized = await checkAuthorization(user);
+                    // if (isAuthorized) {
+                        currentUserId = user.uid;
+                        authOverlay.style.display = 'none';
+                        appContainer.style.display = 'block';
+                        loadTradesFromFirestore();
+                    // } else { ... }
+                } else {
+                    currentUserId = null;
+                    if (unsubscribeFromFirestore) unsubscribeFromFirestore();
+                    allTrades = [];
+                    authOverlay.style.display = 'flex';
+                    appContainer.style.display = 'none';
+                    loaderOverlay.style.display = 'none';
+                }
+            });
+
+            googleSigninButton.addEventListener('click', async () => {
+                try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (error) { authError.textContent = "Could not sign in with Google."; }
+            });
+            logoutButton.addEventListener('click', () => signOut(auth));
+
+            // --- FIRESTORE DATA HANDLING ---
+            const loadTradesFromFirestore = () => {
+                if (!currentUserId) return;
+                loaderOverlay.style.display = 'flex';
+                const docRef = doc(db, "traders", currentUserId);
+                unsubscribeFromFirestore = onSnapshot(docRef, (docSnap) => {
+                    if (docSnap.exists()) {
+                        allTrades = docSnap.data().trades || [];
+                    } else {
+                        allTrades = [];
+                    }
+                    render();
+                    loaderOverlay.style.display = 'none';
+                }, (error) => {
+                    console.error("Firestore read error:", error);
+                    loaderOverlay.style.display = 'none';
+                });
+            };
+
+            const saveDataToFirestore = async () => {
+                if (!currentUserId) return;
+                try {
+                    const docRef = doc(db, "traders", currentUserId);
+                    await setDoc(docRef, { trades: allTrades }, { merge: true });
+                } catch (error) {
+                    console.error("Error saving data to Firestore: ", error);
+                    alert("Error: Could not save data.");
+                }
+            };
+            
+            // --- CORE TRADE LOGIC & CRUD ---
+            const saveTrade = () => {
+                const tradeId = tradeIdInput.value;
+                const tradeData = {
+                    ticker: document.getElementById('ticker-input').value.toUpperCase(),
+                    strategy: document.getElementById('strategy-input').value,
+                    entryDate: document.getElementById('entry-date-input').value,
+                    direction: document.getElementById('direction-select').value,
+                    entryPrice: parseFloat(document.getElementById('entry-price-input').value),
+                    quantity: parseInt(document.getElementById('quantity-input').value),
+                    stopLoss: parseFloat(document.getElementById('stop-loss-input').value),
+                    targetPrice: parseFloat(document.getElementById('target-price-input').value),
+                    entryNotes: document.getElementById('entry-notes-input').value,
+                    status: 'open',
+                };
+
+                if (tradeId) { // Editing existing trade
+                    const index = allTrades.findIndex(t => t.id == tradeId);
+                    if (index > -1) {
+                        allTrades[index] = { ...allTrades[index], ...tradeData };
+                    }
+                } else { // New trade
+                    tradeData.id = Date.now();
+                    allTrades.push(tradeData);
+                }
+                saveDataToFirestore();
+                hideTradeModal();
+            };
+
+            const closeTrade = () => {
+                const tradeId = closeTradeIdInput.value;
+                const index = allTrades.findIndex(t => t.id == tradeId);
+                if (index === -1) return;
+                
+                const exitPrice = parseFloat(document.getElementById('exit-price-input').value);
+                const pnl = (exitPrice - allTrades[index].entryPrice) * allTrades[index].quantity * (allTrades[index].direction === 'Short' ? -1 : 1);
+                
+                let status = 'be';
+                if (pnl > 0) status = 'win';
+                if (pnl < 0) status = 'loss';
+
+                allTrades[index] = {
+                    ...allTrades[index],
+                    exitDate: document.getElementById('exit-date-input').value,
+                    exitPrice: exitPrice,
+                    exitNotes: document.getElementById('exit-notes-input').value,
+                    status: status,
+                    pnl: pnl
+                };
+                saveDataToFirestore();
+                hideCloseTradeModal();
+            };
+            
+            const deleteTrade = (tradeId) => {
+                 if (confirm('Are you sure you want to delete this trade? This action cannot be undone.')) {
+                    allTrades = allTrades.filter(t => t.id != tradeId);
+                    saveDataToFirestore();
+                }
+            };
+
+            // --- UI & RENDERING ---
+            const render = () => {
+                renderStats();
+                renderTradesList();
+            };
+
+            const renderStats = () => {
+                const closedTrades = allTrades.filter(t => t.status !== 'open');
+                const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
+                
+                const wins = closedTrades.filter(t => t.status === 'win').length;
+                const winRate = closedTrades.length > 0 ? (wins / closedTrades.length) * 100 : 0;
+                
+                const totalWinAmount = closedTrades.filter(t => t.status === 'win').reduce((sum, t) => sum + t.pnl, 0);
+                const totalLossAmount = closedTrades.filter(t => t.status === 'loss').reduce((sum, t) => sum + t.pnl, 0);
+                
+                const avgWin = wins > 0 ? totalWinAmount / wins : 0;
+                const losses = closedTrades.length - wins;
+                const avgLoss = losses > 0 ? totalLossAmount / losses : 0;
+                
+                const openTradesCount = allTrades.filter(t => t.status === 'open').length;
+
+                totalPnlEl.textContent = `₹${totalPnl.toFixed(2)}`;
+                totalPnlEl.className = totalPnl >= 0 ? 'pnl-positive' : 'pnl-negative';
+                winRateEl.textContent = `${winRate.toFixed(1)}%`;
+                avgWinLossEl.textContent = `₹${avgWin.toFixed(0)} / ₹${Math.abs(avgLoss).toFixed(0)}`;
+                openTradesCountEl.textContent = openTradesCount;
+            };
+
+            const renderTradesList = () => {
+                tradesList.innerHTML = '';
+                const filteredTrades = allTrades
+                    .filter(t => currentView === 'open' ? t.status === 'open' : t.status !== 'open')
+                    .sort((a,b) => new Date(b.entryDate) - new Date(a.entryDate));
+
+                if (filteredTrades.length === 0) {
+                    tradesList.innerHTML = `<li class="text-center text-slate-500 p-8 bg-white rounded-lg shadow-sm">No ${currentView} trades found.</li>`;
+                    return;
+                }
+
+                filteredTrades.forEach(trade => {
+                    const li = document.createElement('li');
+                    li.className = 'bg-white p-4 rounded-xl shadow-sm';
+                    
+                    const pnlAmount = trade.pnl ? trade.pnl.toFixed(2) : 0;
+                    const pnlPercent = trade.pnl ? ((trade.exitPrice - trade.entryPrice) / trade.entryPrice * 100 * (trade.direction === 'Short' ? -1 : 1)).toFixed(2) : 0;
+                    const pnlClass = trade.pnl > 0 ? 'pnl-positive' : 'pnl-negative';
+                    
+                    const tradeDetailsHtml = trade.status === 'open' ? `
+                        <div class="text-sm"><strong>Qty:</strong> ${trade.quantity} @ ₹${trade.entryPrice}</div>
+                        <div class="text-sm"><strong>SL:</strong> ₹${trade.stopLoss} | <strong>TGT:</strong> ₹${trade.targetPrice}</div>
+                    ` : `
+                        <div class="text-sm"><strong>Exit:</strong> ${trade.exitDate} @ ₹${trade.exitPrice}</div>
+                        <div class="text-lg font-bold ${pnlClass}">₹${pnlAmount} (${pnlPercent}%)</div>
+                    `;
+                    
+                    li.innerHTML = `
+                        <div class="grid grid-cols-3 md:grid-cols-5 gap-4 items-center">
+                            <div class="col-span-3 md:col-span-1">
+                                <p class="font-bold text-xl text-indigo-700">${trade.ticker}</p>
+                                <p class="text-sm text-slate-500">${trade.strategy}</p>
+                            </div>
+                            <div class="md:col-span-2">
+                                <div class="text-sm"><strong>Entry:</strong> ${trade.entryDate}</div>
+                                ${tradeDetailsHtml}
+                            </div>
+                            <div class="text-center">
+                                <span class="status-tag status-${trade.status}">${trade.status}</span>
+                            </div>
+                            <div class="flex justify-end gap-2">
+                                ${trade.status === 'open' ? `<button class="close-trade-btn bg-red-500 text-white text-sm font-semibold py-1 px-3 rounded-md hover:bg-red-600" data-id="${trade.id}">Close</button>` : ''}
+                                <button class="edit-trade-btn bg-slate-200 text-slate-700 text-sm font-semibold py-1 px-3 rounded-md hover:bg-slate-300" data-id="${trade.id}">Edit</button>
+                                <button class="delete-trade-btn text-slate-400 hover:text-red-500" data-id="${trade.id}">🗑️</button>
+                            </div>
+                        </div>
+                    `;
+                    tradesList.appendChild(li);
+                });
+            };
+
+            // --- MODAL CONTROLS ---
+            const showTradeModal = (trade = null) => {
+                tradeForm.reset();
+                if (trade) {
+                    tradeModalTitle.textContent = 'Edit Trade';
+                    tradeIdInput.value = trade.id;
+                    document.getElementById('ticker-input').value = trade.ticker;
+                    document.getElementById('strategy-input').value = trade.strategy;
+                    document.getElementById('entry-date-input').value = trade.entryDate;
+                    document.getElementById('direction-select').value = trade.direction;
+                    document.getElementById('entry-price-input').value = trade.entryPrice;
+                    document.getElementById('quantity-input').value = trade.quantity;
+                    document.getElementById('stop-loss-input').value = trade.stopLoss;
+                    document.getElementById('target-price-input').value = trade.targetPrice;
+                    document.getElementById('entry-notes-input').value = trade.entryNotes;
+                } else {
+                    tradeModalTitle.textContent = 'Log New Trade';
+                    tradeIdInput.value = '';
+                    document.getElementById('entry-date-input').value = new Date().toISOString().split('T')[0];
+                }
+                tradeModalOverlay.style.display = 'flex';
+            };
+            const hideTradeModal = () => { tradeModalOverlay.style.display = 'none'; };
+
+            const showCloseTradeModal = (tradeId) => {
+                closeTradeForm.reset();
+                closeTradeIdInput.value = tradeId;
+                document.getElementById('exit-date-input').value = new Date().toISOString().split('T')[0];
+                closeTradeModalOverlay.style.display = 'flex';
+            };
+            const hideCloseTradeModal = () => { closeTradeModalOverlay.style.display = 'none'; };
+
+            // --- EVENT LISTENERS ---
+            logTradeButton.addEventListener('click', () => showTradeModal());
+            closeTradeModalButton.addEventListener('click', hideTradeModal);
+            tradeForm.addEventListener('submit', (e) => { e.preventDefault(); saveTrade(); });
+            
+            cancelCloseTradeButton.addEventListener('click', hideCloseTradeModal);
+            closeTradeForm.addEventListener('submit', (e) => { e.preventDefault(); closeTrade(); });
+            
+            tradesList.addEventListener('click', (e) => {
+                if (e.target.closest('.edit-trade-btn')) {
+                    const tradeId = e.target.closest('.edit-trade-btn').dataset.id;
+                    const trade = allTrades.find(t => t.id == tradeId);
+                    showTradeModal(trade);
+                }
+                 if (e.target.closest('.close-trade-btn')) {
+                    const tradeId = e.target.closest('.close-trade-btn').dataset.id;
+                    showCloseTradeModal(tradeId);
+                }
+                if (e.target.closest('.delete-trade-btn')) {
+                    const tradeId = e.target.closest('.delete-trade-btn').dataset.id;
+                    deleteTrade(tradeId);
+                }
+            });
+
+            openTradesTab.addEventListener('click', () => {
+                currentView = 'open';
+                openTradesTab.classList.add('active');
+                closedTradesTab.classList.remove('active');
+                renderTradesList();
+            });
+
+            closedTradesTab.addEventListener('click', () => {
+                currentView = 'closed';
+                closedTradesTab.classList.add('active');
+                openTradesTab.classList.remove('active');
+                renderTradesList();
+            });
+
+            // --- INITIALIZATION ---
+            dateElement.textContent = new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' });
+        });
+    </script>
+</body>
+</html>
