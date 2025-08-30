@@ -116,7 +116,7 @@
                 <input type="hidden" id="trade-id-input">
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <input type="text" id="ticker-input" placeholder="Ticker (e.g., RELIANCE)" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="text" id="strategy-input" placeholder="Setup/Strategy (e.g. Breakout)" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                    <input type="text" id="strategy-input" placeholder="Setup/Strategy (e.g. Supertrend)" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
                  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
@@ -131,11 +131,9 @@
                         </select>
                     </div>
                 </div>
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                <div class="grid grid-cols-2 sm:grid-cols-2 gap-3">
                     <input type="number" step="any" id="entry-price-input" placeholder="Entry Price" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                     <input type="number" id="quantity-input" placeholder="Quantity" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" step="any" id="stop-loss-input" placeholder="Stop Loss" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
-                    <input type="number" step="any" id="target-price-input" placeholder="Target" required class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
                 </div>
                 <textarea id="entry-notes-input" placeholder="Entry Notes / Trade Thesis..." rows="3" class="w-full bg-slate-100 border border-slate-300 rounded-lg py-2 px-3 focus:outline-none focus:ring-2 focus:ring-indigo-500"></textarea>
                 <button type="submit" id="save-trade-button" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg hover:bg-indigo-700">Save Trade</button>
@@ -244,14 +242,10 @@
             onAuthStateChanged(auth, async (user) => {
                 if (user) {
                     loaderOverlay.style.display = 'flex';
-                    // Optional: Whitelist check
-                    // const isAuthorized = await checkAuthorization(user);
-                    // if (isAuthorized) {
-                        currentUserId = user.uid;
-                        authOverlay.style.display = 'none';
-                        appContainer.style.display = 'block';
-                        loadTradesFromFirestore();
-                    // } else { ... }
+                    currentUserId = user.uid;
+                    authOverlay.style.display = 'none';
+                    appContainer.style.display = 'block';
+                    loadTradesFromFirestore();
                 } else {
                     currentUserId = null;
                     if (unsubscribeFromFirestore) unsubscribeFromFirestore();
@@ -307,8 +301,6 @@
                     direction: document.getElementById('direction-select').value,
                     entryPrice: parseFloat(document.getElementById('entry-price-input').value),
                     quantity: parseInt(document.getElementById('quantity-input').value),
-                    stopLoss: parseFloat(document.getElementById('stop-loss-input').value),
-                    targetPrice: parseFloat(document.getElementById('target-price-input').value),
                     entryNotes: document.getElementById('entry-notes-input').value,
                     status: 'open',
                 };
@@ -316,7 +308,9 @@
                 if (tradeId) { // Editing existing trade
                     const index = allTrades.findIndex(t => t.id == tradeId);
                     if (index > -1) {
-                        allTrades[index] = { ...allTrades[index], ...tradeData };
+                         // Retain close data if it exists when editing
+                        const existingTrade = allTrades[index];
+                        allTrades[index] = { ...existingTrade, ...tradeData };
                     }
                 } else { // New trade
                     tradeData.id = Date.now();
@@ -374,7 +368,7 @@
                 const totalLossAmount = closedTrades.filter(t => t.status === 'loss').reduce((sum, t) => sum + t.pnl, 0);
                 
                 const avgWin = wins > 0 ? totalWinAmount / wins : 0;
-                const losses = closedTrades.length - wins;
+                const losses = closedTrades.filter(t => t.status === 'win' || t.status ==='loss').length - wins; // only count wins and losses for avg loss calculation
                 const avgLoss = losses > 0 ? totalLossAmount / losses : 0;
                 
                 const openTradesCount = allTrades.filter(t => t.status === 'open').length;
@@ -407,7 +401,6 @@
                     
                     const tradeDetailsHtml = trade.status === 'open' ? `
                         <div class="text-sm"><strong>Qty:</strong> ${trade.quantity} @ ₹${trade.entryPrice}</div>
-                        <div class="text-sm"><strong>SL:</strong> ₹${trade.stopLoss} | <strong>TGT:</strong> ₹${trade.targetPrice}</div>
                     ` : `
                         <div class="text-sm"><strong>Exit:</strong> ${trade.exitDate} @ ₹${trade.exitPrice}</div>
                         <div class="text-lg font-bold ${pnlClass}">₹${pnlAmount} (${pnlPercent}%)</div>
@@ -449,8 +442,6 @@
                     document.getElementById('direction-select').value = trade.direction;
                     document.getElementById('entry-price-input').value = trade.entryPrice;
                     document.getElementById('quantity-input').value = trade.quantity;
-                    document.getElementById('stop-loss-input').value = trade.stopLoss;
-                    document.getElementById('target-price-input').value = trade.targetPrice;
                     document.getElementById('entry-notes-input').value = trade.entryNotes;
                 } else {
                     tradeModalTitle.textContent = 'Log New Trade';
@@ -513,3 +504,4 @@
     </script>
 </body>
 </html>
+
