@@ -258,9 +258,25 @@
                 }
             });
 
-            googleSigninButton.addEventListener('click', async () => {
-                try { await signInWithPopup(auth, new GoogleAuthProvider()); } catch (error) { authError.textContent = "Could not sign in with Google."; }
-            });
+            const handleGoogleSignIn = async () => {
+                const provider = new GoogleAuthProvider();
+                try {
+                    await signInWithPopup(auth, provider);
+                    // onAuthStateChanged will handle the successful login
+                } catch (error) {
+                    console.error("Google Sign-In Error:", error.code, error.message);
+                    if (error.code === 'auth/popup-blocked') {
+                        authError.textContent = 'Popup blocked. Please allow popups for this site.';
+                        alert('Your browser blocked the sign-in popup. Please enable popups and try again.');
+                    } else if (error.code === 'auth/popup-closed-by-user') {
+                        authError.textContent = 'Sign-in window closed before completion.';
+                    } else {
+                        authError.textContent = 'Could not sign in with Google.';
+                    }
+                }
+            };
+
+            googleSigninButton.addEventListener('click', handleGoogleSignIn);
             logoutButton.addEventListener('click', () => signOut(auth));
 
             // --- FIRESTORE DATA HANDLING ---
@@ -506,4 +522,5 @@
     </script>
 </body>
 </html>
+
 
