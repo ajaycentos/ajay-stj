@@ -59,11 +59,39 @@
             color: white;
             box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
         }
+        
+        /* Calendar Styles */
+        .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+        .calendar-day {
+            aspect-ratio: 1 / 1; 
+            display: flex; 
+            flex-direction: column;
+            align-items: center; 
+            justify-content: center;
+            border-radius: 8px; 
+            background-color: #f8fafc;
+            font-size: 0.75rem; 
+            cursor: pointer; 
+            transition: background-color 0.2s;
+            padding: 2px;
+        }
+        .calendar-day:hover { background-color: #f1f5f9; }
+        .calendar-day.today { font-weight: bold; border: 2px solid #4f46e5; }
+        .calendar-day.selected { background-color: #e0e7ff; border: 2px solid #4338ca; }
+        .calendar-day .trades {
+            font-size: 0.7rem;
+            font-weight: 700;
+            display: flex;
+            gap: 6px;
+            margin-top: 2px;
+        }
+        .calendar-day .buys { color: #16a34a; }
+        .calendar-day .sells { color: #dc2626; }
     </style>
 </head>
 <body class="bg-slate-100 text-slate-800 flex items-start justify-center min-h-screen pt-8 sm:pt-12">
 
-    <main id="app-container" class="w-full max-w-4xl mx-auto p-4" style="display: none;">
+    <main id="app-container" class="w-full max-w-6xl mx-auto p-4" style="display: none;">
         <header class="text-center mb-8 relative">
             <h1 class="text-3xl font-bold text-slate-900">Swing Trading Journal</h1>
             <p id="current-date" class="text-slate-500">Track your trades, improve your edge.</p>
@@ -96,27 +124,53 @@
             </div>
         </section>
 
-        <!-- Action Bar and Tabs -->
-        <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
-             <div class="flex justify-center bg-slate-200 p-1 rounded-lg w-full sm:w-auto">
-                <button id="open-trades-tab" class="tab-btn active">Open</button>
-                <button id="closed-trades-tab" class="tab-btn">Closed</button>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div class="lg:col-span-2">
+                <!-- Action Bar and Tabs -->
+                <div class="flex flex-col sm:flex-row justify-between sm:items-center mb-4 gap-4">
+                     <div class="flex justify-center bg-slate-200 p-1 rounded-lg w-full sm:w-auto">
+                        <button id="open-trades-tab" class="tab-btn active">Open</button>
+                        <button id="closed-trades-tab" class="tab-btn">Closed</button>
+                    </div>
+                    <div class="flex items-center gap-2 w-full sm:w-auto">
+                        <button id="view-reports-button" class="w-full sm:w-auto text-sm font-semibold text-indigo-600 hover:bg-indigo-100 py-3 px-4 rounded-lg transition">View Reports</button>
+                        <button id="log-trade-button" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition shadow-lg">Log New Trade</button>
+                    </div>
+                </div>
+
+                <!-- Trades List -->
+                <section id="trades-list-section">
+                    <div id="trades-header" class="flex justify-between items-center mb-3 px-2">
+                        <h2 id="trades-list-header" class="text-xl font-semibold">Open Trades</h2>
+                        <button id="clear-date-filter" class="text-sm font-semibold text-indigo-600 hover:underline" style="display: none;">View All</button>
+                    </div>
+                    <ul id="trades-list" class="space-y-3">
+                        <!-- Trade items will be dynamically inserted here -->
+                    </ul>
+                </section>
             </div>
-            <div class="flex items-center gap-2 w-full sm:w-auto">
-                <button id="view-reports-button" class="w-full sm:w-auto text-sm font-semibold text-indigo-600 hover:bg-indigo-100 py-3 px-4 rounded-lg transition">View Reports</button>
-                <button id="log-trade-button" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition shadow-lg">Log New Trade</button>
+            
+            <!-- Calendar Section -->
+            <div class="lg:col-span-1">
+                <section id="calendar-section" class="mt-4 lg:mt-0">
+                    <h2 class="text-xl font-semibold mb-3 px-2">Trade History</h2>
+                    <div class="bg-white p-4 rounded-2xl shadow-md">
+                        <div class="flex justify-between items-center mb-4">
+                            <button id="prev-month" class="p-2 rounded-full hover:bg-slate-100">&lt;</button>
+                            <h3 id="month-year" class="font-bold text-lg"></h3>
+                            <button id="next-month" class="p-2 rounded-full hover:bg-slate-100">&gt;</button>
+                        </div>
+                        <div class="calendar-grid text-center text-xs font-semibold text-slate-500 mb-2">
+                            <div>Sun</div><div>Mon</div><div>Tue</div><div>Wed</div><div>Thu</div><div>Fri</div><div>Sat</div>
+                        </div>
+                        <div id="calendar-body" class="calendar-grid"></div>
+                    </div>
+                </section>
             </div>
         </div>
-
-        <!-- Trades List -->
-        <section id="trades-list-section">
-            <ul id="trades-list" class="space-y-3">
-                <!-- Trade items will be dynamically inserted here -->
-            </ul>
-        </section>
     </main>
     
-    <!-- Add/Edit Trade Modal -->
+    <!-- Modals -->
     <div id="trade-modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
         <div class="w-full max-w-lg bg-white p-6 rounded-2xl shadow-xl space-y-4">
             <div class="flex justify-between items-center">
@@ -152,7 +206,6 @@
         </div>
     </div>
     
-    <!-- Close Trade Modal -->
     <div id="close-trade-modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
          <div class="w-full max-w-sm bg-white p-6 rounded-2xl shadow-xl space-y-4">
              <div class="flex justify-between items-center">
@@ -175,7 +228,6 @@
          </div>
     </div>
 
-    <!-- Reports Modal -->
     <div id="reports-modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
         <div class="w-full max-w-4xl h-full max-h-[90vh] bg-white p-6 rounded-2xl shadow-xl space-y-4 overflow-y-auto">
             <div class="flex justify-between items-center mb-4">
@@ -195,7 +247,6 @@
         </div>
     </div>
 
-    <!-- Auth & Loader Overlays -->
     <div id="auth-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl text-center">
             <h2 class="text-2xl font-bold mb-2 text-slate-800">Trading Journal</h2>
@@ -212,7 +263,7 @@
     </div>
 
     <script type="module">
-        // --- SCRIPT VERSION 2.0 (ADDED CHARTS & PROFIT FACTOR) ---
+        // --- SCRIPT VERSION 3.0 (ADDED CALENDAR & LAYOUT) ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -241,19 +292,19 @@
             const dateElement = document.getElementById('current-date');
             const logTradeButton = document.getElementById('log-trade-button');
             const tradesList = document.getElementById('trades-list');
+            const tradesListHeader = document.getElementById('trades-list-header');
+            const clearDateFilter = document.getElementById('clear-date-filter');
 
-            // Modals
+            // Modals & Reports
             const tradeModalOverlay = document.getElementById('trade-modal-overlay');
             const closeTradeModalButton = document.getElementById('close-trade-modal-button');
             const tradeModalTitle = document.getElementById('trade-modal-title');
             const tradeForm = document.getElementById('trade-form');
             const tradeIdInput = document.getElementById('trade-id-input');
-
             const closeTradeModalOverlay = document.getElementById('close-trade-modal-overlay');
             const closeTradeForm = document.getElementById('close-trade-form');
             const cancelCloseTradeButton = document.getElementById('cancel-close-trade-button');
             const closeTradeIdInput = document.getElementById('close-trade-id-input');
-            
             const reportsModalOverlay = document.getElementById('reports-modal-overlay');
             const closeReportsModalButton = document.getElementById('close-reports-modal-button');
             const viewReportsButton = document.getElementById('view-reports-button');
@@ -268,6 +319,12 @@
             const avgWinLossEl = document.getElementById('avg-win-loss');
             const openTradesCountEl = document.getElementById('open-trades-count');
             const profitFactorEl = document.getElementById('profit-factor');
+            
+            // Calendar
+            const monthYearElement = document.getElementById('month-year');
+            const calendarBody = document.getElementById('calendar-body');
+            const prevMonthBtn = document.getElementById('prev-month');
+            const nextMonthBtn = document.getElementById('next-month');
 
             // --- APP STATE ---
             let allTrades = [];
@@ -276,6 +333,8 @@
             let currentView = 'open'; // 'open' or 'closed'
             let cumulativePnlChart = null;
             let strategyPnlChart = null;
+            let calendarDate = new Date();
+            let selectedDateStr = null;
 
             // --- AUTHENTICATION ---
             onAuthStateChanged(auth, async (user) => {
@@ -313,10 +372,7 @@
                     }
                     render();
                     loaderOverlay.style.display = 'none';
-                }, (error) => {
-                    console.error("Firestore read error:", error);
-                    loaderOverlay.style.display = 'none';
-                });
+                }, (error) => { console.error("Firestore read error:", error); loaderOverlay.style.display = 'none'; });
             };
 
             const saveDataToFirestore = async () => {
@@ -324,36 +380,15 @@
                 try {
                     const docRef = doc(db, "traders", currentUserId);
                     await setDoc(docRef, { trades: allTrades }, { merge: true });
-                } catch (error) {
-                    console.error("Error saving data to Firestore: ", error);
-                    alert("Error: Could not save data.");
-                }
+                } catch (error) { console.error("Error saving data to Firestore: ", error); alert("Error: Could not save data."); }
             };
             
             // --- CORE TRADE LOGIC & CRUD ---
             const saveTrade = () => {
                 const tradeId = tradeIdInput.value;
-                const tradeData = {
-                    ticker: document.getElementById('ticker-input').value.toUpperCase(),
-                    strategy: document.getElementById('strategy-input').value,
-                    entryDate: document.getElementById('entry-date-input').value,
-                    direction: document.getElementById('direction-select').value,
-                    entryPrice: parseFloat(document.getElementById('entry-price-input').value),
-                    quantity: parseInt(document.getElementById('quantity-input').value),
-                    entryNotes: document.getElementById('entry-notes-input').value,
-                    status: 'open',
-                };
-
-                if (tradeId) { // Editing existing trade
-                    const index = allTrades.findIndex(t => t.id == tradeId);
-                    if (index > -1) {
-                         const existingTrade = allTrades[index];
-                        allTrades[index] = { ...existingTrade, ...tradeData };
-                    }
-                } else { // New trade
-                    tradeData.id = Date.now();
-                    allTrades.push(tradeData);
-                }
+                const tradeData = { ticker: document.getElementById('ticker-input').value.toUpperCase(), strategy: document.getElementById('strategy-input').value, entryDate: document.getElementById('entry-date-input').value, direction: document.getElementById('direction-select').value, entryPrice: parseFloat(document.getElementById('entry-price-input').value), quantity: parseInt(document.getElementById('quantity-input').value), entryNotes: document.getElementById('entry-notes-input').value, status: 'open', };
+                if (tradeId) { const index = allTrades.findIndex(t => t.id == tradeId); if (index > -1) { const existingTrade = allTrades[index]; allTrades[index] = { ...existingTrade, ...tradeData }; }
+                } else { tradeData.id = Date.now(); allTrades.push(tradeData); }
                 saveDataToFirestore();
                 hideTradeModal();
             };
@@ -362,31 +397,18 @@
                 const tradeId = closeTradeIdInput.value;
                 const index = allTrades.findIndex(t => t.id == tradeId);
                 if (index === -1) return;
-                
                 const exitPrice = parseFloat(document.getElementById('exit-price-input').value);
                 const pnl = (exitPrice - allTrades[index].entryPrice) * allTrades[index].quantity * (allTrades[index].direction === 'Short' ? -1 : 1);
-                
                 let status = 'be';
                 if (pnl > 0) status = 'win';
                 if (pnl < 0) status = 'loss';
-
-                allTrades[index] = {
-                    ...allTrades[index],
-                    exitDate: document.getElementById('exit-date-input').value,
-                    exitPrice: exitPrice,
-                    exitNotes: document.getElementById('exit-notes-input').value,
-                    status: status,
-                    pnl: pnl
-                };
+                allTrades[index] = { ...allTrades[index], exitDate: document.getElementById('exit-date-input').value, exitPrice: exitPrice, exitNotes: document.getElementById('exit-notes-input').value, status: status, pnl: pnl };
                 saveDataToFirestore();
                 hideCloseTradeModal();
             };
             
             const deleteTrade = (tradeId) => {
-                 if (confirm('Are you sure you want to delete this trade? This action cannot be undone.')) {
-                    allTrades = allTrades.filter(t => t.id != tradeId);
-                    saveDataToFirestore();
-                }
+                 if (confirm('Are you sure you want to delete this trade? This action cannot be undone.')) { allTrades = allTrades.filter(t => t.id != tradeId); saveDataToFirestore(); }
             };
 
             // --- UI & RENDERING ---
@@ -394,31 +416,22 @@
                 renderStats();
                 renderTradesList();
                 renderCharts();
+                renderCalendar();
             };
 
             const renderStats = () => {
                 const closedTrades = allTrades.filter(t => t.status !== 'open');
                 const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
-                
                 const wins = closedTrades.filter(t => t.status === 'win');
                 const losses = closedTrades.filter(t => t.status === 'loss');
                 const winRate = closedTrades.length > 0 ? (wins.length / closedTrades.length) * 100 : 0;
-                
                 const grossProfit = wins.reduce((sum, t) => sum + t.pnl, 0);
                 const grossLoss = losses.reduce((sum, t) => sum + t.pnl, 0);
-                
                 const avgWin = wins.length > 0 ? grossProfit / wins.length : 0;
                 const avgLoss = losses.length > 0 ? grossLoss / losses.length : 0;
-
                 let profitFactor = 0;
-                if (grossLoss !== 0) {
-                    profitFactor = Math.abs(grossProfit / grossLoss);
-                } else if (grossProfit > 0) {
-                    profitFactor = Infinity;
-                }
-                
+                if (grossLoss !== 0) { profitFactor = Math.abs(grossProfit / grossLoss); } else if (grossProfit > 0) { profitFactor = Infinity; }
                 const openTradesCount = allTrades.filter(t => t.status === 'open').length;
-
                 totalPnlEl.textContent = `₹${totalPnl.toFixed(2)}`;
                 totalPnlEl.className = totalPnl >= 0 ? 'pnl-positive' : 'pnl-negative';
                 winRateEl.textContent = `${winRate.toFixed(1)}%`;
@@ -428,137 +441,109 @@
             };
 
             const renderTradesList = () => {
-                tradesList.innerHTML = '';
-                const filteredTrades = allTrades
-                    .filter(t => currentView === 'open' ? t.status === 'open' : t.status !== 'open')
-                    .sort((a,b) => new Date(b.entryDate) - new Date(a.entryDate));
+                let tradesToRender = allTrades.filter(t => currentView === 'open' ? t.status === 'open' : t.status !== 'open');
+                
+                if (selectedDateStr) {
+                    tradesToRender = tradesToRender.filter(t => t.entryDate === selectedDateStr);
+                    const formattedDate = new Date(selectedDateStr + 'T00:00:00').toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+                    tradesListHeader.textContent = `Trades for ${formattedDate}`;
+                    clearDateFilter.style.display = 'block';
+                } else {
+                    tradesListHeader.textContent = `${currentView.charAt(0).toUpperCase() + currentView.slice(1)} Trades`;
+                    clearDateFilter.style.display = 'none';
+                }
 
-                if (filteredTrades.length === 0) {
-                    tradesList.innerHTML = `<li class="text-center text-slate-500 p-8 bg-white rounded-lg shadow-sm">No ${currentView} trades found.</li>`;
+                tradesList.innerHTML = '';
+                const sortedTrades = tradesToRender.sort((a,b) => new Date(b.entryDate) - new Date(a.entryDate));
+
+                if (sortedTrades.length === 0) {
+                    tradesList.innerHTML = `<li class="text-center text-slate-500 p-8 bg-white rounded-lg shadow-sm">No trades found for this view.</li>`;
                     return;
                 }
 
-                filteredTrades.forEach(trade => {
+                sortedTrades.forEach(trade => {
                     const li = document.createElement('li');
                     li.className = 'bg-white p-4 rounded-xl shadow-sm';
-                    
                     const pnlAmount = trade.pnl ? trade.pnl.toFixed(2) : 0;
                     const pnlPercent = trade.pnl ? ((trade.exitPrice - trade.entryPrice) / trade.entryPrice * 100 * (trade.direction === 'Short' ? -1 : 1)).toFixed(2) : 0;
                     const pnlClass = trade.pnl > 0 ? 'pnl-positive' : 'pnl-negative';
-                    
-                    const tradeDetailsHtml = trade.status === 'open' ? `
-                        <div class="text-sm"><strong>Qty:</strong> ${trade.quantity} @ ₹${trade.entryPrice}</div>
-                    ` : `
-                        <div class="text-sm"><strong>Exit:</strong> ${trade.exitDate} @ ₹${trade.exitPrice}</div>
-                        <div class="text-lg font-bold ${pnlClass}">₹${pnlAmount} (${pnlPercent}%)</div>
-                    `;
-                    
-                    li.innerHTML = `
-                        <div class="grid grid-cols-3 md:grid-cols-5 gap-4 items-center">
-                            <div class="col-span-3 md:col-span-1">
-                                <p class="font-bold text-xl text-indigo-700">${trade.ticker}</p>
-                                <p class="text-sm text-slate-500">${trade.strategy}</p>
-                            </div>
-                            <div class="md:col-span-2">
-                                <div class="text-sm"><strong>Entry:</strong> ${trade.entryDate}</div>
-                                ${tradeDetailsHtml}
-                            </div>
-                            <div class="text-center">
-                                <span class="status-tag status-${trade.status}">${trade.status}</span>
-                            </div>
-                            <div class="flex justify-end gap-2">
-                                ${trade.status === 'open' ? `<button class="close-trade-btn bg-red-500 text-white text-sm font-semibold py-1 px-3 rounded-md hover:bg-red-600" data-id="${trade.id}">Close</button>` : ''}
-                                <button class="edit-trade-btn bg-slate-200 text-slate-700 text-sm font-semibold py-1 px-3 rounded-md hover:bg-slate-300" data-id="${trade.id}">Edit</button>
-                                <button class="delete-trade-btn text-slate-400 hover:text-red-500" data-id="${trade.id}">🗑️</button>
-                            </div>
-                        </div>
-                    `;
+                    const tradeDetailsHtml = trade.status === 'open' ? `<div class="text-sm"><strong>Qty:</strong> ${trade.quantity} @ ₹${trade.entryPrice}</div>` : `<div class="text-sm"><strong>Exit:</strong> ${trade.exitDate} @ ₹${trade.exitPrice}</div><div class="text-lg font-bold ${pnlClass}">₹${pnlAmount} (${pnlPercent}%)</div>`;
+                    li.innerHTML = `<div class="grid grid-cols-3 md:grid-cols-5 gap-4 items-center"><div class="col-span-3 md:col-span-1"><p class="font-bold text-xl text-indigo-700">${trade.ticker}</p><p class="text-sm text-slate-500">${trade.strategy}</p></div><div class="md:col-span-2"><div class="text-sm"><strong>Entry:</strong> ${trade.entryDate}</div>${tradeDetailsHtml}</div><div class="text-center"><span class="status-tag status-${trade.status}">${trade.status}</span></div><div class="flex justify-end gap-2">${trade.status === 'open' ? `<button class="close-trade-btn bg-red-500 text-white text-sm font-semibold py-1 px-3 rounded-md hover:bg-red-600" data-id="${trade.id}">Close</button>` : ''}<button class="edit-trade-btn bg-slate-200 text-slate-700 text-sm font-semibold py-1 px-3 rounded-md hover:bg-slate-300" data-id="${trade.id}">Edit</button><button class="delete-trade-btn text-slate-400 hover:text-red-500" data-id="${trade.id}">🗑️</button></div></div>`;
                     tradesList.appendChild(li);
                 });
             };
 
-            const renderCharts = () => {
-                const closedTrades = allTrades
-                    .filter(t => t.status !== 'open')
-                    .sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate));
+            const renderCalendar = () => {
+                calendarBody.innerHTML = '';
+                const year = calendarDate.getFullYear();
+                const month = calendarDate.getMonth();
+                monthYearElement.textContent = calendarDate.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                const firstDay = new Date(year, month, 1).getDay();
+                const daysInMonth = new Date(year, month + 1, 0).getDate();
+                const todayStr = new Date().toISOString().split('T')[0];
 
-                // Cumulative P&L Chart
+                for (let i = 0; i < firstDay; i++) { calendarBody.insertAdjacentHTML('beforeend', `<div class="calendar-day other-month"></div>`); }
+                
+                for (let i = 1; i <= daysInMonth; i++) {
+                    const dayCell = document.createElement('div');
+                    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                    dayCell.className = 'calendar-day';
+                    dayCell.dataset.date = dateStr;
+                    if (dateStr === todayStr) dayCell.classList.add('today');
+                    if (dateStr === selectedDateStr) dayCell.classList.add('selected');
+
+                    const tradesOnDay = allTrades.filter(t => t.entryDate === dateStr);
+                    const buys = tradesOnDay.filter(t => t.direction === 'Long').length;
+                    const sells = tradesOnDay.filter(t => t.direction === 'Short').length;
+
+                    let tradesHtml = '';
+                    if(buys > 0 || sells > 0) {
+                        tradesHtml = `<div class="trades">`;
+                        if (buys > 0) tradesHtml += `<span class="buys">▲${buys}</span>`;
+                        if (sells > 0) tradesHtml += `<span class="sells">▼${sells}</span>`;
+                        tradesHtml += `</div>`;
+                    }
+                    dayCell.innerHTML = `<span>${i}</span>${tradesHtml}`;
+                    calendarBody.appendChild(dayCell);
+                }
+            };
+            
+            const renderCharts = () => {
+                const closedTrades = allTrades.filter(t => t.status !== 'open').sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate));
                 if (cumulativePnlChart) cumulativePnlChart.destroy();
                 const pnlCtx = document.getElementById('cumulative-pnl-chart').getContext('2d');
                 let cumulativePnl = 0;
                 const pnlData = closedTrades.map(t => cumulativePnl += t.pnl);
-                
-                cumulativePnlChart = new Chart(pnlCtx, {
-                    type: 'line',
-                    data: {
-                        labels: closedTrades.map((t, i) => `Trade ${i + 1}`),
-                        datasets: [{
-                            label: 'Cumulative P&L',
-                            data: pnlData,
-                            borderColor: '#4f46e5',
-                            backgroundColor: 'rgba(79, 70, 229, 0.1)',
-                            fill: true,
-                            tension: 0.1
-                        }]
-                    }
-                });
-
-                // P&L by Strategy Chart
+                cumulativePnlChart = new Chart(pnlCtx, { type: 'line', data: { labels: closedTrades.map((t, i) => `Trade ${i + 1}`), datasets: [{ label: 'Cumulative P&L', data: pnlData, borderColor: '#4f46e5', backgroundColor: 'rgba(79, 70, 229, 0.1)', fill: true, tension: 0.1 }] } });
                 if (strategyPnlChart) strategyPnlChart.destroy();
                 const strategyCtx = document.getElementById('strategy-pnl-chart').getContext('2d');
                 const strategyPnl = {};
-                closedTrades.forEach(t => {
-                    const strategy = t.strategy || 'Uncategorized';
-                    if (!strategyPnl[strategy]) strategyPnl[strategy] = 0;
-                    strategyPnl[strategy] += t.pnl;
-                });
-                
-                strategyPnlChart = new Chart(strategyCtx, {
-                    type: 'bar',
-                    data: {
-                        labels: Object.keys(strategyPnl),
-                        datasets: [{
-                            label: 'Total P&L by Strategy',
-                            data: Object.values(strategyPnl),
-                            backgroundColor: Object.values(strategyPnl).map(pnl => pnl >= 0 ? 'rgba(22, 163, 74, 0.7)' : 'rgba(220, 38, 38, 0.7)'),
-                            borderColor: Object.values(strategyPnl).map(pnl => pnl >= 0 ? '#166534' : '#991b1b'),
-                            borderWidth: 1
-                        }]
-                    },
-                    options: { indexAxis: 'y' }
-                });
+                closedTrades.forEach(t => { const strategy = t.strategy || 'Uncategorized'; if (!strategyPnl[strategy]) strategyPnl[strategy] = 0; strategyPnl[strategy] += t.pnl; });
+                strategyPnlChart = new Chart(strategyCtx, { type: 'bar', data: { labels: Object.keys(strategyPnl), datasets: [{ label: 'Total P&L by Strategy', data: Object.values(strategyPnl), backgroundColor: Object.values(strategyPnl).map(pnl => pnl >= 0 ? 'rgba(22, 163, 74, 0.7)' : 'rgba(220, 38, 38, 0.7)'), borderColor: Object.values(strategyPnl).map(pnl => pnl >= 0 ? '#166534' : '#991b1b'), borderWidth: 1 }] }, options: { indexAxis: 'y' } });
             };
 
-            // --- MODAL CONTROLS ---
+            // --- MODAL & VIEW CONTROLS ---
             const showTradeModal = (trade = null) => {
                 tradeForm.reset();
                 if (trade) {
-                    tradeModalTitle.textContent = 'Edit Trade';
-                    tradeIdInput.value = trade.id;
-                    document.getElementById('ticker-input').value = trade.ticker;
-                    document.getElementById('strategy-input').value = trade.strategy;
-                    document.getElementById('entry-date-input').value = trade.entryDate;
-                    document.getElementById('direction-select').value = trade.direction;
-                    document.getElementById('entry-price-input').value = trade.entryPrice;
-                    document.getElementById('quantity-input').value = trade.quantity;
+                    tradeModalTitle.textContent = 'Edit Trade'; tradeIdInput.value = trade.id;
+                    document.getElementById('ticker-input').value = trade.ticker; document.getElementById('strategy-input').value = trade.strategy;
+                    document.getElementById('entry-date-input').value = trade.entryDate; document.getElementById('direction-select').value = trade.direction;
+                    document.getElementById('entry-price-input').value = trade.entryPrice; document.getElementById('quantity-input').value = trade.quantity;
                     document.getElementById('entry-notes-input').value = trade.entryNotes;
                 } else {
-                    tradeModalTitle.textContent = 'Log New Trade';
-                    tradeIdInput.value = '';
+                    tradeModalTitle.textContent = 'Log New Trade'; tradeIdInput.value = '';
                     document.getElementById('entry-date-input').value = new Date().toISOString().split('T')[0];
                 }
                 tradeModalOverlay.style.display = 'flex';
             };
             const hideTradeModal = () => { tradeModalOverlay.style.display = 'none'; };
-
             const showCloseTradeModal = (tradeId) => {
-                closeTradeForm.reset();
-                closeTradeIdInput.value = tradeId;
+                closeTradeForm.reset(); closeTradeIdInput.value = tradeId;
                 document.getElementById('exit-date-input').value = new Date().toISOString().split('T')[0];
                 closeTradeModalOverlay.style.display = 'flex';
             };
             const hideCloseTradeModal = () => { closeTradeModalOverlay.style.display = 'none'; };
-            
             const showReportsModal = () => { reportsModalOverlay.style.display = 'flex'; };
             const hideReportsModal = () => { reportsModalOverlay.style.display = 'none'; };
 
@@ -566,41 +551,35 @@
             logTradeButton.addEventListener('click', () => showTradeModal());
             closeTradeModalButton.addEventListener('click', hideTradeModal);
             tradeForm.addEventListener('submit', (e) => { e.preventDefault(); saveTrade(); });
-            
             cancelCloseTradeButton.addEventListener('click', hideCloseTradeModal);
             closeTradeForm.addEventListener('submit', (e) => { e.preventDefault(); closeTrade(); });
-            
             viewReportsButton.addEventListener('click', showReportsModal);
             closeReportsModalButton.addEventListener('click', hideReportsModal);
             
             tradesList.addEventListener('click', (e) => {
-                if (e.target.closest('.edit-trade-btn')) {
-                    const tradeId = e.target.closest('.edit-trade-btn').dataset.id;
-                    const trade = allTrades.find(t => t.id == tradeId);
-                    showTradeModal(trade);
-                }
-                 if (e.target.closest('.close-trade-btn')) {
-                    const tradeId = e.target.closest('.close-trade-btn').dataset.id;
-                    showCloseTradeModal(tradeId);
-                }
-                if (e.target.closest('.delete-trade-btn')) {
-                    const tradeId = e.target.closest('.delete-trade-btn').dataset.id;
-                    deleteTrade(tradeId);
-                }
+                if (e.target.closest('.edit-trade-btn')) { const tradeId = e.target.closest('.edit-trade-btn').dataset.id; const trade = allTrades.find(t => t.id == tradeId); showTradeModal(trade); }
+                if (e.target.closest('.close-trade-btn')) { const tradeId = e.target.closest('.close-trade-btn').dataset.id; showCloseTradeModal(tradeId); }
+                if (e.target.closest('.delete-trade-btn')) { const tradeId = e.target.closest('.delete-trade-btn').dataset.id; deleteTrade(tradeId); }
             });
 
-            openTradesTab.addEventListener('click', () => {
-                currentView = 'open';
-                openTradesTab.classList.add('active');
-                closedTradesTab.classList.remove('active');
-                renderTradesList();
-            });
+            openTradesTab.addEventListener('click', () => { currentView = 'open'; openTradesTab.classList.add('active'); closedTradesTab.classList.remove('active'); renderTradesList(); });
+            closedTradesTab.addEventListener('click', () => { currentView = 'closed'; closedTradesTab.classList.add('active'); openTradesTab.classList.remove('active'); renderTradesList(); });
 
-            closedTradesTab.addEventListener('click', () => {
-                currentView = 'closed';
-                closedTradesTab.classList.add('active');
-                openTradesTab.classList.remove('active');
+            // Calendar Listeners
+            prevMonthBtn.addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() - 1); renderCalendar(); });
+            nextMonthBtn.addEventListener('click', () => { calendarDate.setMonth(calendarDate.getMonth() + 1); renderCalendar(); });
+            calendarBody.addEventListener('click', (e) => {
+                const dayCell = e.target.closest('.calendar-day');
+                if (dayCell?.dataset.date) {
+                    selectedDateStr = dayCell.dataset.date;
+                    renderTradesList();
+                    renderCalendar(); // Re-render to show selection
+                }
+            });
+            clearDateFilter.addEventListener('click', () => {
+                selectedDateStr = null;
                 renderTradesList();
+                renderCalendar();
             });
 
             // --- INITIALIZATION ---
