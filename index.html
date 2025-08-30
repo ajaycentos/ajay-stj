@@ -8,12 +8,14 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body {
             font-family: 'Inter', sans-serif;
             -webkit-tap-highlight-color: transparent;
         }
-        #auth-overlay, #loader-overlay, #trade-modal-overlay, #close-trade-modal-overlay {
+        #auth-overlay, #loader-overlay, #trade-modal-overlay, #close-trade-modal-overlay, #reports-modal-overlay {
             background-color: rgba(241, 245, 249, 0.95);
             backdrop-filter: blur(8px);
         }
@@ -71,7 +73,7 @@
         </header>
 
         <!-- Stats Section -->
-        <section id="stats-section" class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+        <section id="stats-section" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-4 mb-8">
             <div class="stat-card bg-white p-4 rounded-xl shadow-md text-center">
                 <h3>Total P&L</h3>
                 <p id="total-pnl">₹0</p>
@@ -88,6 +90,10 @@
                 <h3>Open Trades</h3>
                 <p id="open-trades-count">0</p>
             </div>
+             <div class="stat-card bg-white p-4 rounded-xl shadow-md text-center">
+                <h3>Profit Factor</h3>
+                <p id="profit-factor">0.0</p>
+            </div>
         </section>
 
         <!-- Action Bar and Tabs -->
@@ -96,7 +102,10 @@
                 <button id="open-trades-tab" class="tab-btn active">Open</button>
                 <button id="closed-trades-tab" class="tab-btn">Closed</button>
             </div>
-            <button id="log-trade-button" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition shadow-lg">Log New Trade</button>
+            <div class="flex items-center gap-2 w-full sm:w-auto">
+                <button id="view-reports-button" class="w-full sm:w-auto text-sm font-semibold text-indigo-600 hover:bg-indigo-100 py-3 px-4 rounded-lg transition">View Reports</button>
+                <button id="log-trade-button" class="w-full sm:w-auto bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 transition shadow-lg">Log New Trade</button>
+            </div>
         </div>
 
         <!-- Trades List -->
@@ -166,6 +175,26 @@
          </div>
     </div>
 
+    <!-- Reports Modal -->
+    <div id="reports-modal-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
+        <div class="w-full max-w-4xl h-full max-h-[90vh] bg-white p-6 rounded-2xl shadow-xl space-y-4 overflow-y-auto">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-2xl font-bold">Performance Reports</h2>
+                <button id="close-reports-modal-button" class="text-slate-500 hover:text-slate-800 text-3xl">&times;</button>
+            </div>
+            <div class="space-y-8">
+                <div>
+                    <h3 class="text-lg font-semibold mb-2 text-center">Cumulative P&L</h3>
+                    <canvas id="cumulative-pnl-chart"></canvas>
+                </div>
+                <div>
+                    <h3 class="text-lg font-semibold mb-2 text-center">P&L by Strategy</h3>
+                    <canvas id="strategy-pnl-chart"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Auth & Loader Overlays -->
     <div id="auth-overlay" class="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div class="w-full max-w-sm bg-white p-8 rounded-2xl shadow-xl text-center">
@@ -183,7 +212,7 @@
     </div>
 
     <script type="module">
-        // --- SCRIPT VERSION 1.5 (ROBUST MOBILE LAYOUT & FIREBASE IMPORTS) ---
+        // --- SCRIPT VERSION 2.0 (ADDED CHARTS & PROFIT FACTOR) ---
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
         import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
         import { getFirestore, doc, onSnapshot, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -225,6 +254,10 @@
             const cancelCloseTradeButton = document.getElementById('cancel-close-trade-button');
             const closeTradeIdInput = document.getElementById('close-trade-id-input');
             
+            const reportsModalOverlay = document.getElementById('reports-modal-overlay');
+            const closeReportsModalButton = document.getElementById('close-reports-modal-button');
+            const viewReportsButton = document.getElementById('view-reports-button');
+            
             // Tabs
             const openTradesTab = document.getElementById('open-trades-tab');
             const closedTradesTab = document.getElementById('closed-trades-tab');
@@ -234,12 +267,15 @@
             const winRateEl = document.getElementById('win-rate');
             const avgWinLossEl = document.getElementById('avg-win-loss');
             const openTradesCountEl = document.getElementById('open-trades-count');
+            const profitFactorEl = document.getElementById('profit-factor');
 
             // --- APP STATE ---
             let allTrades = [];
             let currentUserId = null;
             let unsubscribeFromFirestore = null;
             let currentView = 'open'; // 'open' or 'closed'
+            let cumulativePnlChart = null;
+            let strategyPnlChart = null;
 
             // --- AUTHENTICATION ---
             onAuthStateChanged(auth, async (user) => {
@@ -311,8 +347,7 @@
                 if (tradeId) { // Editing existing trade
                     const index = allTrades.findIndex(t => t.id == tradeId);
                     if (index > -1) {
-                         // Retain close data if it exists when editing
-                        const existingTrade = allTrades[index];
+                         const existingTrade = allTrades[index];
                         allTrades[index] = { ...existingTrade, ...tradeData };
                     }
                 } else { // New trade
@@ -358,21 +393,29 @@
             const render = () => {
                 renderStats();
                 renderTradesList();
+                renderCharts();
             };
 
             const renderStats = () => {
                 const closedTrades = allTrades.filter(t => t.status !== 'open');
                 const totalPnl = closedTrades.reduce((sum, t) => sum + (t.pnl || 0), 0);
                 
-                const wins = closedTrades.filter(t => t.status === 'win').length;
-                const winRate = closedTrades.length > 0 ? (wins / closedTrades.length) * 100 : 0;
+                const wins = closedTrades.filter(t => t.status === 'win');
+                const losses = closedTrades.filter(t => t.status === 'loss');
+                const winRate = closedTrades.length > 0 ? (wins.length / closedTrades.length) * 100 : 0;
                 
-                const totalWinAmount = closedTrades.filter(t => t.status === 'win').reduce((sum, t) => sum + t.pnl, 0);
-                const totalLossAmount = closedTrades.filter(t => t.status === 'loss').reduce((sum, t) => sum + t.pnl, 0);
+                const grossProfit = wins.reduce((sum, t) => sum + t.pnl, 0);
+                const grossLoss = losses.reduce((sum, t) => sum + t.pnl, 0);
                 
-                const avgWin = wins > 0 ? totalWinAmount / wins : 0;
-                const losses = closedTrades.filter(t => t.status === 'loss').length;
-                const avgLoss = losses > 0 ? totalLossAmount / losses : 0;
+                const avgWin = wins.length > 0 ? grossProfit / wins.length : 0;
+                const avgLoss = losses.length > 0 ? grossLoss / losses.length : 0;
+
+                let profitFactor = 0;
+                if (grossLoss !== 0) {
+                    profitFactor = Math.abs(grossProfit / grossLoss);
+                } else if (grossProfit > 0) {
+                    profitFactor = Infinity;
+                }
                 
                 const openTradesCount = allTrades.filter(t => t.status === 'open').length;
 
@@ -381,6 +424,7 @@
                 winRateEl.textContent = `${winRate.toFixed(1)}%`;
                 avgWinLossEl.textContent = `₹${avgWin.toFixed(0)} / ₹${Math.abs(avgLoss).toFixed(0)}`;
                 openTradesCountEl.textContent = openTradesCount;
+                profitFactorEl.textContent = profitFactor === Infinity ? 'Perfect' : profitFactor.toFixed(2);
             };
 
             const renderTradesList = () => {
@@ -433,6 +477,58 @@
                 });
             };
 
+            const renderCharts = () => {
+                const closedTrades = allTrades
+                    .filter(t => t.status !== 'open')
+                    .sort((a, b) => new Date(a.exitDate) - new Date(b.exitDate));
+
+                // Cumulative P&L Chart
+                if (cumulativePnlChart) cumulativePnlChart.destroy();
+                const pnlCtx = document.getElementById('cumulative-pnl-chart').getContext('2d');
+                let cumulativePnl = 0;
+                const pnlData = closedTrades.map(t => cumulativePnl += t.pnl);
+                
+                cumulativePnlChart = new Chart(pnlCtx, {
+                    type: 'line',
+                    data: {
+                        labels: closedTrades.map((t, i) => `Trade ${i + 1}`),
+                        datasets: [{
+                            label: 'Cumulative P&L',
+                            data: pnlData,
+                            borderColor: '#4f46e5',
+                            backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                            fill: true,
+                            tension: 0.1
+                        }]
+                    }
+                });
+
+                // P&L by Strategy Chart
+                if (strategyPnlChart) strategyPnlChart.destroy();
+                const strategyCtx = document.getElementById('strategy-pnl-chart').getContext('2d');
+                const strategyPnl = {};
+                closedTrades.forEach(t => {
+                    const strategy = t.strategy || 'Uncategorized';
+                    if (!strategyPnl[strategy]) strategyPnl[strategy] = 0;
+                    strategyPnl[strategy] += t.pnl;
+                });
+                
+                strategyPnlChart = new Chart(strategyCtx, {
+                    type: 'bar',
+                    data: {
+                        labels: Object.keys(strategyPnl),
+                        datasets: [{
+                            label: 'Total P&L by Strategy',
+                            data: Object.values(strategyPnl),
+                            backgroundColor: Object.values(strategyPnl).map(pnl => pnl >= 0 ? 'rgba(22, 163, 74, 0.7)' : 'rgba(220, 38, 38, 0.7)'),
+                            borderColor: Object.values(strategyPnl).map(pnl => pnl >= 0 ? '#166534' : '#991b1b'),
+                            borderWidth: 1
+                        }]
+                    },
+                    options: { indexAxis: 'y' }
+                });
+            };
+
             // --- MODAL CONTROLS ---
             const showTradeModal = (trade = null) => {
                 tradeForm.reset();
@@ -462,6 +558,9 @@
                 closeTradeModalOverlay.style.display = 'flex';
             };
             const hideCloseTradeModal = () => { closeTradeModalOverlay.style.display = 'none'; };
+            
+            const showReportsModal = () => { reportsModalOverlay.style.display = 'flex'; };
+            const hideReportsModal = () => { reportsModalOverlay.style.display = 'none'; };
 
             // --- EVENT LISTENERS ---
             logTradeButton.addEventListener('click', () => showTradeModal());
@@ -470,6 +569,9 @@
             
             cancelCloseTradeButton.addEventListener('click', hideCloseTradeModal);
             closeTradeForm.addEventListener('submit', (e) => { e.preventDefault(); closeTrade(); });
+            
+            viewReportsButton.addEventListener('click', showReportsModal);
+            closeReportsModalButton.addEventListener('click', hideReportsModal);
             
             tradesList.addEventListener('click', (e) => {
                 if (e.target.closest('.edit-trade-btn')) {
